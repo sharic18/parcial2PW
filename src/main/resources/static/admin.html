@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Panel del administrador</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+  <nav class="barra navbar navbar-dark px-3">
+    <span class="navbar-brand">Panel del administrador</span>
+    <span class="text-white ms-auto me-3" id="quien"></span>
+    <button class="btn btn-outline-light btn-sm" onclick="cerrarSesion()">Cerrar sesión</button>
+  </nav>
+
+  <main class="container my-4">
+    <div id="alerta"></div>
+    <div class="row g-4">
+
+      <section class="col-lg-6">
+        <h2 class="h5">Médicos</h2>
+        <form id="formMedico" class="tarjeta mb-3">
+          <input type="hidden" id="medicoId">
+          <input class="form-control mb-2" id="mNombre" placeholder="Nombre del médico" maxlength="40" required>
+          <input class="form-control mb-2" id="mEsp" placeholder="Especialidad" maxlength="60" required>
+          <input class="form-control mb-2" id="mUser" placeholder="Usuario de acceso (solo al crear)" maxlength="30">
+          <input class="form-control mb-3" id="mPass" type="password" placeholder="Clave (solo al crear)">
+          <div>
+            <button class="btn btn-primary" id="btnMedico">Crear médico</button>
+            <button type="button" class="btn btn-outline-secondary" onclick="limpiarMedico()">Limpiar</button>
+          </div>
+        </form>
+        <table class="table table-sm bg-white">
+          <thead><tr><th>Nombre</th><th>Especialidad</th><th>Usuario</th><th></th></tr></thead>
+          <tbody id="tablaMedicos"></tbody>
+        </table>
+      </section>
+
+      <section class="col-lg-6">
+        <h2 class="h5">Asignar consultorio</h2>
+        <form id="formConsulta" class="tarjeta mb-3">
+          <input class="form-control mb-2" id="cPaciente" placeholder="Nombre del paciente (máx. 40)" maxlength="40" required>
+          <input class="form-control mb-2" id="cMotivo" placeholder="Motivo de la consulta (máx. 100)" maxlength="100" required>
+          <input class="form-control mb-2" id="cConsultorio" type="number" min="1" placeholder="Número de consultorio" required>
+          <div class="row g-2 mb-2">
+            <div class="col"><label class="form-label small mb-0" for="cInicio">Hora de inicio</label>
+              <input class="form-control" id="cInicio" type="time" required></div>
+            <div class="col"><label class="form-label small mb-0" for="cFin">Hora de fin</label>
+              <input class="form-control" id="cFin" type="time" required></div>
+          </div>
+          <select class="form-select mb-3" id="cMedico" required></select>
+          <button class="btn btn-primary">Registrar consulta</button>
+        </form>
+        <table class="table table-sm bg-white">
+          <thead><tr><th>Paciente</th><th>Motivo</th><th>Cons.</th><th>Horario</th><th>Médico</th></tr></thead>
+          <tbody id="tablaConsultas"></tbody>
+        </table>
+      </section>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+  <script>
+    let medicos = [];
+
+    async function cargarMedicos() {
+      medicos = await api('/api/admin/medicos');
+      document.getElementById('tablaMedicos').innerHTML = medicos.map(m => `
+        <tr>
+          <td>${esc(m.nombre)}</td><td>${esc(m.especialidad)}</td><td>${esc(m.username)}</td>
+          <td class="text-end text-nowrap">
+            <button class="btn btn-sm btn-outline-primary" onclick="editarMedico(${m.id})">Editar</button>
+            <button class="btn btn-sm btn-outline-danger" onclick="eliminarMedico(${m.id})">Eliminar</button>
+          </td>
+        </tr>`).join('') || '<tr><td colspan="4" class="text-muted">No hay médicos registrados.</td></tr>';
+      document.getElementById('cMedico').innerHTML =
+        '<option value="">Seleccione un médico…</option>' +
+        medicos.map(m => `<option value="${m.id}">${esc(m.nombre)} - ${esc(m.especialidad)}</option>`).join('');
+    }
+
+    async function cargarConsultas() {
+      const lista = await api('/api/admin/consultas');
+      document.getElementById('tablaConsultas').innerHTML = lista.map(c => `
+        <tr><td>${esc(c.nombre_paciente)}</td><td>${esc(c.motivo)}</td><td>${esc(c.numero_consultorio)}</td>
+        <td>${hora(c.hora_inicio)} - ${hora(c.hora_fin)}</td><td>${esc(c.medico)}</td></tr>`).join('')
+        || '<tr><td colspan="5" class="text-muted">No hay consultas registradas.</td></tr>';
+    }
+
+    function limpiarMedico() {
+      document.getElementById('formMedico').reset();
+      document.getElementById('medicoId').value = '';
+      document.getElementById('mUser').disabled = false;
+      document.getElementById('mPass').disabled = false;
+      document.getElementById('btnMedico').textContent = 'Crear médico';
+    }
+
+    function editarMedico(id) {
+      const m = medicos.find(x => x.id === id);
+      document.getElementById('medicoId').value = m.id;
+      document.getElementById('mNombre').value = m.nombre;
+      document.getElementById('mEsp').value = m.especialidad;
+      document.getElementById('mUser').disabled = true;
+      document.getElementById('mPass').disabled = true;
+      document.getElementById('btnMedico').textContent = 'Guardar cambios';
+      document.getElementById('mNombre').focus();
+    }
+
+    async function eliminarMedico(id) {
+      if (!confirm('¿Eliminar este médico y todas sus consultas?')) return;
+      try {
+        await api('/api/admin/medicos/' + id, { method: 'DELETE' });
+        mostrar('Médico eliminado');
+        cargarMedicos(); cargarConsultas();
+      } catch (e) { mostrar(mensajeError(e), 'danger'); }
+    }
+
+    document.getElementById('formMedico').addEventListener('submit', async e => {
+      e.preventDefault();
+      const id = document.getElementById('medicoId').value;
+      const cuerpo = {
+        nombre: document.getElementById('mNombre').value,
+        especialidad: document.getElementById('mEsp').value,
+        username: document.getElementById('mUser').value,
+        password: document.getElementById('mPass').value
+      };
+      try {
+        if (id) await api('/api/admin/medicos/' + id, { method: 'PUT', body: JSON.stringify(cuerpo) });
+        else await api('/api/admin/medicos', { method: 'POST', body: JSON.stringify(cuerpo) });
+        mostrar(id ? 'Médico actualizado' : 'Médico creado');
+        limpiarMedico(); cargarMedicos(); cargarConsultas();
+      } catch (err) { mostrar(mensajeError(err), 'danger'); }
+    });
+
+    document.getElementById('formConsulta').addEventListener('submit', async e => {
+      e.preventDefault();
+      const cuerpo = {
+        nombrePaciente: document.getElementById('cPaciente').value,
+        motivo: document.getElementById('cMotivo').value,
+        numeroConsultorio: document.getElementById('cConsultorio').value === '' ? null : Number(document.getElementById('cConsultorio').value),
+        horaInicio: document.getElementById('cInicio').value || null,
+        horaFin: document.getElementById('cFin').value || null,
+        medicoId: document.getElementById('cMedico').value === '' ? null : Number(document.getElementById('cMedico').value)
+      };
+      try {
+        await api('/api/admin/consultas', { method: 'POST', body: JSON.stringify(cuerpo) });
+        mostrar('Consulta registrada');
+        document.getElementById('formConsulta').reset();
+        cargarConsultas();
+      } catch (err) { mostrar(mensajeError(err), 'danger'); }
+    });
+
+    mostrarUsuario(); cargarMedicos(); cargarConsultas();
+  </script>
+</body>
+</html>

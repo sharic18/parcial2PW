@@ -1,0 +1,10 @@
+:root { --bs-primary: #0f766e; --bs-primary-rgb: 15, 118, 110; --bs-link-color: #0f766e; }
+body { background: #f4f7f6; color: #1f2937; font-family: "Segoe UI", system-ui, sans-serif; }
+.btn-primary {
+  --bs-btn-bg: #0f766e; --bs-btn-border-color: #0f766e;
+  --bs-btn-hover-bg: #0b5f58; --bs-btn-hover-border-color: #0b5f58;
+  --bs-btn-active-bg: #0b5f58; --bs-btn-active-border-color: #0b5f58;
+}
+.barra { background: #0f3d3a; }
+.tarjeta { background: #fff; border: 1px solid #dde5e3; border-radius: 6px; padding: 1.25rem; }
+th { font-weight: 600; }
